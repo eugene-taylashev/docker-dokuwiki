@@ -37,6 +37,7 @@ etaylashev/dokuwiki
 - Pack them into a **7zip** archive with a password/symmetric key: `7z a -pYourSecretPassword doku.7z ./*`
 - Place the archive to your configuration server, write down the URL
 - Run the image: 
+
 ```
 docker run -d \
 --name doku \
@@ -47,3 +48,4 @@ docker run -d \
 -v  /var/k8s/doku/dokuwiki:/usr/share/dokuwiki \
 etaylashev/dokuwiki
 ```
+- `entrypoint.sh` will move all files with `*.key, *.crt, *.pem` from the archive to the folder `/etc/tls`
