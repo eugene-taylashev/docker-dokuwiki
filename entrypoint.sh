@@ -236,6 +236,13 @@ else
             "[not ok] - moving httpd.conf"
     fi
 
+    #-- move ssmtp.conf
+    if [ -s ${DIR_TMP}/ssmtp.conf ] ; then
+        mv -f ${DIR_TMP}/ssmtp.conf /etc/ssmtp/
+        is_good "[ok] - moved ssmtp.conf" \
+            "[not ok] - moving ssmtp.conf"
+    fi
+
     #-- move other apache config files
     if compgen -G "${DIR_TMP}/*.conf" > /dev/null ; then
         mv -f ${DIR_TMP}/*.conf /etc/apache2/conf.d/
@@ -255,13 +262,6 @@ else
     mv ${DIR_TMP}/*.key ${DIR_TLS}/
     mv ${DIR_TMP}/*.crt ${DIR_TLS}/
     mv ${DIR_TMP}/*.pem ${DIR_TLS}/
-
-    #-- move ssmtp.conf
-    if [ -s ${DIR_TMP}/ssmtp.conf ] ; then
-        mv -f ${DIR_TMP}/ssmtp.conf /etc/ssmtp/
-        is_good "[ok] - moved ssmtp.conf" \
-            "[not ok] - moving ssmtp.conf"
-    fi
 
     #-- Delete the archive
     rm -f ${DIR_TMP}/conf.7z
