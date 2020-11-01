@@ -33,9 +33,9 @@ etaylashev/dokuwiki
 - Do not forget to configure DokuWiki ([instructions](https://www.dokuwiki.org/install)) for the first time: `http://your_ip/install.php`
 
 ### Run the scanario 3:
-- Store the  key, certificarte and related configuration files into a directory
-- Pack them into a 7zip archive with a password/symmetric key: `7z a -pYourSecretPassword doku.7z ./*`
-- Place the archive to your configuration server, writhe down the URL
+- Store the  key, certificarte, CA chain certs and related configuration files into a directory.
+- Pack them into a **7zip** archive with a password/symmetric key: `7z a -pYourSecretPassword doku.7z ./*`
+- Place the archive to your configuration server, write down the URL
 - Run the image: 
 ```
 docker run -d \
