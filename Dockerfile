@@ -16,9 +16,12 @@ LABEL maintainer="Eugene Taylashev" \
 EXPOSE 80
 EXPOSE 443
 
+#-- Volume with configuration files for Apache and SSMTP
+VOLUME "/etc/dokuwiki"
+#-- Volume with actual DokuWiki
+VOLUME "/var/dokuwiki"
+
 #-- default environment variables
-ENV URL_CONF=none
-ENV SKEY=none
 ENV VERBOSE=0
 
 COPY ./entrypoint.sh /usr/local/bin/

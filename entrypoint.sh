@@ -1,4 +1,7 @@
 #!/bin/sh
+#==============================================================================
+# Entry point script to start a DokuWiki + Apache + PHP server
+#==============================================================================
 set -e
 
 #=============================================================================
@@ -6,13 +9,14 @@ set -e
 #  Variable declarations
 #
 #=============================================================================
-SVER="20201029"			#-- Updated by Eugene Taylashev
+SVER="20210222"			#-- Updated by Eugene Taylashev
 #VERBOSE=1			#-- 1 - be verbose flag
 
-DIR_DOKU=/usr/share/dokuwiki
+DIR_CONF=/etc/dokuwiki          #-- Configuration for Apache and SSMTP, could be mounted as a volume
+DIR_DOKU=/var/dokuwiki          #-- Directory with Doku files, could be mounted as a volume
 URL_DOKU=https://download.dokuwiki.org/src/dokuwiki/dokuwiki-stable.tgz
 DIR_TLS=/etc/tls
-DIR_TMP=/tmp
+
 
 #=============================================================================
 #
@@ -74,6 +78,7 @@ get_container_details(){
 
         uname -a
         ip address
+        id apache
         echo '---------------------------------------------------------------------'
     fi
 }
@@ -130,18 +135,18 @@ if [ ! -s ${DIR_DOKU}/doku.php ] ; then
   exit 1
 fi
 
-#-- chanage permission just in case
+#-- chanage ownership just in case
 chown -R apache:apache ${DIR_DOKU}
-is_good "[ok] - verified permission for the app" \
-  "[not ok] - verifying permission for the app"
+is_good "[ok] - verified owner for the app" \
+  "[not ok] - verifying owner for the app"
 
 
 #-----------------------------------------------------------------------------
 # Work with Apche HTTPD configuration
 #-----------------------------------------------------------------------------
 
-#-- Check configuration URL
-if [ "${URL_CONF}" = "none" ]; then
+#-- Check if volume with configuration is mounted
+if [ ! -d ${DIR_CONF} ] ; then
 
     #==== Prepare default configuration files
     #-- Change Document Root for httpd
@@ -163,27 +168,27 @@ if [ "${URL_CONF}" = "none" ]; then
   #-- Create configuration file for DokuWiki
     if [ ! -s /etc/apache2/conf.d/doku.conf ] ; then
       cat <<- EOC > /etc/apache2/conf.d/doku.conf
-    <Directory /usr/share/dokuwiki/bin>
+    <Directory /var/dokuwiki/bin>
         Require all denied
     </Directory>
 
-    <Directory /usr/share/dokuwiki/data>
+    <Directory /var/dokuwiki/data>
         Require all denied
     </Directory>
 
-    <Directory /usr/share/dokuwiki/conf>
+    <Directory /var/dokuwiki/conf>
         Require all denied
     </Directory>
 
-    <Directory /usr/share/dokuwiki/inc>
+    <Directory /var/dokuwiki/inc>
         Require all denied
     </Directory>
 
-    <Directory /usr/share/dokuwiki/>
+    <Directory /var/dokuwiki/>
         DirectoryIndex doku.php
         Options +FollowSymLinks -Indexes -MultiViews
         Require all granted
-#        Require ip 10.1.1.0/24
+#        Require ip 10.0.0.0/8
 
 
         <IfModule mod_rewrite.c>
@@ -212,42 +217,31 @@ EOC
     fi
     #== End of default configuration
 
-else 
-    #==== Get external configuration files
-    #-- Get configuration file
-    wget -q --no-check-certificate -O ${DIR_TMP}/conf.7z ${URL_CONF}
-    is_good "[ok] - downloaded specified apache configuration" \
-        "[not ok] - downloading specified apache configuration"
+else
 
-    #-- Unpack configuration file with 7zip
-    7z e -o${DIR_TMP} -p${SKEY} ${DIR_TMP}/conf.7z
-    is_good "[ok] - unpacked specified apache configuration" \
-        "[not ok] - unpacking specified apache configuration"
-
+    #== Start of external configuration (volume)
+  
     if [ $VERBOSE -eq 1 ] ; then
-      echo "List of special configuration files:"
-      ls -l ${DIR_TMP}/
+      echo "List of special configuration files from ${DIR_CONF}:"
+      ls -lR ${DIR_CONF}/
     fi
 
-    #-- move httpd.conf
-    if [ -s ${DIR_TMP}/httpd.conf ] ; then
-        mv -f ${DIR_TMP}/httpd.conf /etc/apache2/httpd.conf
-        is_good "[ok] - moved httpd.conf" \
-            "[not ok] - moving httpd.conf"
+    #-- chanage ownership just in case
+    chown -R root:apache ${DIR_CONF}
+    chmod 755 ${DIR_CONF}
+
+    #-- copy httpd.conf
+    if [ -s ${DIR_CONF}/httpd.conf ] ; then
+        cp ${DIR_CONF}/httpd.conf /etc/apache2/httpd.conf
+        is_good "[ok] - copied httpd.conf" \
+            "[not ok] - copying httpd.conf"
     fi
 
-    #-- move ssmtp.conf
-    if [ -s ${DIR_TMP}/ssmtp.conf ] ; then
-        mv -f ${DIR_TMP}/ssmtp.conf /etc/ssmtp/
-        is_good "[ok] - moved ssmtp.conf" \
-            "[not ok] - moving ssmtp.conf"
-    fi
-
-    #-- move other apache config files
-    if compgen -G "${DIR_TMP}/*.conf" > /dev/null ; then
-        mv -f ${DIR_TMP}/*.conf /etc/apache2/conf.d/
-        is_good "[ok] - moved other configuration files" \
-            "[not ok] - moving other configuration files"
+    #-- copy other apache config files
+    if [ -d ${DIR_CONF}/conf.d ] ; then
+        cp ${DIR_CONF}/conf.d/* /etc/apache2/conf.d/
+        is_good "[ok] - copied other configuration files" \
+            "[not ok] - copying other configuration files"
     fi
 
     #-- check directory for certificates & keys
@@ -259,12 +253,17 @@ else
     fi
 
     #-- Copy keys, certificates and PEM if any
-    mv ${DIR_TMP}/*.key ${DIR_TLS}/
-    mv ${DIR_TMP}/*.crt ${DIR_TLS}/
-    mv ${DIR_TMP}/*.pem ${DIR_TLS}/
+    cp ${DIR_CONF}/*.key ${DIR_TLS}/
+    cp ${DIR_CONF}/*.crt ${DIR_TLS}/
+    cp ${DIR_CONF}/*.pem ${DIR_TLS}/
+    ls -lR ${DIR_TLS}/
 
-    #-- Delete the archive
-    rm -f ${DIR_TMP}/conf.7z
+    #-- copy ssmtp.conf
+    if [ -s ${DIR_CONF}/ssmtp.conf ] ; then
+        cp  ${DIR_CONF}/ssmtp.conf /etc/ssmtp/
+        is_good "[ok] - copied ssmtp.conf" \
+            "[not ok] - copying ssmtp.conf"
+    fi
 
     #== End of external configuration
 fi
